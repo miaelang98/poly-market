@@ -10,29 +10,63 @@
           <p>주소: {{ address }}</p>
           <p>잔액: {{ balance }} ETH</p>
           <p>네트워크: {{ network }}</p>
+          <div class="eth-price">
+            <p>현재 이더리움 가격: ${{ ethPrice }}</p>
+          </div>
         </div>
       </template>
     </div>
-    <input type="number" v-model="amount" placeholder="보낼 금액" />
-    <button @click="sendCoins">전송하기</button>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { ethers } from 'ethers';
 
-const coinBalance = ref(0.00);
 const ethPrice = ref(0.00);
-const amount = ref(null);
-
-const sendCoins = () => {
-  console.log(`전송할 금액: ${amount.value} POLY`);
-};
 
 const isConnected = ref(false);
 const address = ref('');
 const balance = ref('');
 const network = ref('');
+
+const getEthPrice = async () => {
+  try {
+    // Ganache의 기본 URL. 필요에 따라 변경하세요.
+    const provider = new ethers.providers.JsonRpcProvider('http://localhost:7545');
+
+    // 체인 ID를 확인하여 로컬 환경인지 판단
+    const network = await provider.getNetwork();
+
+    if (network.chainId === 1337) { // Ganache의 기본 체인 ID
+      // 로컬 환경일 경우 하드코딩된 가격 사용
+      ethPrice.value = (2000 + Math.random() * 100).toFixed(2);
+    } else {
+      // 실제 네트워크일 경우 기존 로직 사용
+      const aggregatorV3InterfaceABI = [
+        {
+          inputs: [],
+          name: "latestRoundData",
+          outputs: [
+            { internalType: "uint80", name: "roundId", type: "uint80" },
+            { internalType: "int256", name: "answer", type: "int256" },
+            { internalType: "uint256", name: "startedAt", type: "uint256" },
+            { internalType: "uint256", name: "updatedAt", type: "uint256" },
+            { internalType: "uint80", name: "answeredInRound", type: "uint80" }
+          ],
+          stateMutability: "view",
+          type: "function"
+        }
+      ];
+      const addr = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
+      const priceFeed = new ethers.Contract(addr, aggregatorV3InterfaceABI, provider);
+      const roundData = await priceFeed.latestRoundData();
+      ethPrice.value = (roundData.answer.toNumber() / 100000000).toFixed(2);
+    }
+  } catch (error) {
+    console.error("이더리움 가격을 가져오는 데 실패했습니다:", error);
+  }
+};
 
 const connectWallet = async () => {
   if (typeof window.ethereum !== 'undefined') {
@@ -85,6 +119,9 @@ const getNetworkName = (chainId) => {
 onMounted(() => {
   // 페이지 로드 시 자동으로 연결 시도
   connectWallet();
+  getEthPrice();
+  // 10초마다 가격 업데이트
+  setInterval(getEthPrice, 10000);
 });
 </script>
 
