@@ -12,6 +12,7 @@ contract Voting {
     }
 
     uint public voteCount; // 총 투표 수
+    uint public voteList; // 투표 종류 수
     mapping(uint => Vote) public votes; // 투표 ID로 투표 데이터 접근
 
     // 투표 생성 이벤트
@@ -32,7 +33,7 @@ contract Voting {
         }
 
         emit VoteCreated(voteCount, question, imageURL, options);
-        voteCount++;
+        voteList++;
     }
 
     // 투표하기
@@ -41,6 +42,7 @@ contract Voting {
         require(optionIndex < votes[voteId].options.length, "Invalid option");
         
         votes[voteId].votes[optionIndex]++;
+        voteCount++;
     }
 
     // 결과 가져오기
@@ -52,5 +54,11 @@ contract Voting {
             results[i] = votes[voteId].votes[i];
         }
         return results;
+    }
+
+     // 옵션 반환 함수
+    function getOptions(uint voteId) public view returns (string[] memory) {
+        require(votes[voteId].exists, "Vote does not exist");
+        return votes[voteId].options;
     }
 }
